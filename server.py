@@ -39,3 +39,47 @@ def disconnect(sock):
     save_stats()
 
 print(f"TCP Server running on {HOST}:{PORT}...")
+
+while True:
+    read_sockets, _, _ = select.select([server] + clients, [], [], 1)
+
+    for sock in read_sockets:
+        if sock == server:
+            c, addr = server.accept()
+            if len(clients) >= MAX_CLIENTS:
+                c.send("GABIM: Serveri plot.".encode())
+                c.close()
+            else:
+                clients.append(c)
+                last_active[c] = time.time()
+                c.send("AUTH_REQUIRED".encode())
+        else:
+            try:
+                data = sock.recv(4096).decode().strip()
+                if not data:
+                    disconnect(sock)
+                    continue
+
+                last_active[sock] = time.time()
+
+                if sock not in client_ids:
+                    parts = data.split(":") 
+                    cid, rrole = parts[0], parts[1].lower()
+                    
+                    if cid in client_ids.values():
+                        sock.send("GABIM: Emri ekziston.".encode())
+                        disconnect(sock)
+                        continue
+                    if rrole == "admin" and "admin" in roles.values():
+                        sock.send("GABIM: Ka nje Admin.".encode())
+                        disconnect(sock)
+                        continue
+
+                    client_ids[sock], roles[sock] = cid, rrole
+                    save_stats()
+                    sock.send(f"AUTH_OK: Miresevini {cid}".encode())
+                    continue
+
+            except Exception as e: # kodi vazhdon kjo pjese eshte e perkohshme 
+                print(f"Gabim: {e}")
+                disconnect(sock) # deri ketu 
