@@ -49,4 +49,63 @@ def disconnect(sock):
     sock.close()
     save_stats()
 
-print(f"Serveri po pret lidhje ne {PORT}...")
+print(f"TCP Server running on {HOST}:{PORT}...")
+
+while True:
+    read_sockets, _, _ = select.select([server] + clients, [], [], 1)
+
+# per te mos lejuar qasjen e me shume se 4 klienteve
+    for sock in read_sockets:
+        if sock == server: 
+            c, addr = server.accept()
+            print(f"Tentim lidhjeje nga {addr}")
+            if len(clients) >= MAX_CLIENTS:
+                c.send("GABIM: Serveri plot.".encode())
+                c.close()
+            else:
+                clients.append(c)
+                last_active[c] = time.time()
+                c.send("AUTH_REQUIRED".encode())
+        else:
+            try:
+                data = sock.recv(4096).decode().strip()
+                if not data:
+                    disconnect(sock)
+                    continue
+
+                last_active[sock] = time.time()
+        # E domosdoshme te caktohet nje rol user ose admin
+                if sock not in client_ids:
+                    if ":" not in data:
+                        sock.send("GABIM: Formati ID:ROLI".encode())
+                        continue 
+                    cid, rrole = data.split(":", 1)
+                    rrole = rrole.lower()
+
+                    if rrole not in ["admin", "user"] or not cid:
+                        sock.send("GABIM: Duhet te jepni ID dhe rolin rreptesisht (admin/user):".encode())
+                        continue
+                    if rrole == "admin":
+                        other_admin_exists = any(r == "admin" for s, r in roles.items() if client_ids.get(s) != cid)
+               # ndalon krijimin e me shume se 1 admini per session         
+                        if other_admin_exists:
+                            sock.send("GABIM: Admini ekziston. Zgjidh rolin 'user' per te vazhduar:".encode())
+                            continue 
+                    if cid in sessions: # rikuperimi automatik pasi shkeputet lidhja pas kalimit te timeout
+                        print(f"RIKUPERIM: {cid} u rikthye.")
+                        for s, name in list(client_ids.items()):
+                            if name == cid:
+                                if s in clients: clients.remove(s)
+                                s.close()
+                                del client_ids[s]
+                                if s in roles: del roles[s]
+                    sessions[cid] = rrole
+                    client_ids[sock] = cid
+                    roles[sock] = rrole
+                    sock.send(f"AUTH_OK: Miresevini {cid}".encode()) # kur kryhet autentikimi vazhdojme me komandat e tjera
+                    save_stats()
+                    continue
+
+            except Exception as e: # kodi vazhdon kjo pjese eshte e perkohshme 
+                print(f"Gabim: {e}")
+                disconnect(sock) # deri ketu 
