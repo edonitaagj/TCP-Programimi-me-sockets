@@ -106,6 +106,33 @@ while True:
                     save_stats()
                     continue
 
+                monitoring_data["message_count"] += 1
+                monitoring_data["all_messages"].append(f"{client_ids[sock]}: {data}")
+                save_stats()
+
+                if roles[sock] != "admin": time.sleep(1.5)
+
+                cmd_parts = data.split(" ", 2)
+                cmd = cmd_parts[0].lower()
+                os.makedirs("server_files", exist_ok=True)
+
+                if cmd == "/list" and roles[sock] == "admin":
+                    sock.send(str(os.listdir("server_files")).encode())
+
+                elif cmd == "/read" or cmd == "/download":
+                    if len(cmd_parts) < 2: sock.send("GABIM".encode())
+                    else:
+                        path = f"server_files/{cmd_parts[1]}"
+                        if os.path.exists(path):
+                            with open(path, "r") as f: sock.send(f.read().encode())
+                        else: sock.send("Nuk ekziston".encode())
+
+                elif cmd == "/upload" and roles[sock] == "admin":
+                    if len(cmd_parts) < 3: sock.send("GABIM".encode())
+                    else:
+                        with open(f"server_files/{cmd_parts[1]}", "w") as f: f.write(cmd_parts[2])
+                        sock.send("OK UPLOAD".encode())
+
             except Exception as e: # kodi vazhdon kjo pjese eshte e perkohshme 
                 print(f"Gabim: {e}")
                 disconnect(sock) # deri ketu 
