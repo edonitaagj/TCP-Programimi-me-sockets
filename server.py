@@ -18,7 +18,7 @@ hostname = socket.gethostname()
 local_ip = socket.gethostbyname(hostname)
 
 print(f"Serveri duke punuar ne {HOST}:{PORT}")
-print(f"IP lokale (përdore për klient): {local_ip}")
+print(f"IP lokale (perdore per klient): {local_ip}")
 
 clients = []
 roles = {} 
@@ -151,6 +151,18 @@ while True:
                         sock.send(info.encode())
                     else: sock.send("Nuk ekziston".encode())
 
-            except Exception as e: # kodi vazhdon kjo pjese eshte e perkohshme 
-                print(f"Gabim: {e}")
-                disconnect(sock) # deri ketu 
+                else:
+                    if cmd in ["/upload", "/delete","/download","/info","/search","/list"] and roles[sock] != "admin":
+                        sock.send("REFUSED: Nuk keni privilegje shkrimi.".encode())
+                    else:
+                        sock.send("Mesazhi u mor.".encode())
+
+            except:
+                disconnect(sock)
+
+    for s in clients[:]:
+        if time.time() - last_active.get(s, 0) > TIMEOUT:
+            print(f"Timeout per {client_ids.get(s, 'unknown')}")
+            disconnect(s)
+
+             
