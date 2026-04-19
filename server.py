@@ -132,6 +132,24 @@ while True:
                     else:
                         with open(f"server_files/{cmd_parts[1]}", "w") as f: f.write(cmd_parts[2])
                         sock.send("OK UPLOAD".encode())
+                # komanda per delete nga ana e adminit
+                elif cmd == "/delete" and roles[sock] == "admin":
+                    path = f"server_files/{cmd_parts[1]}"
+                    if os.path.exists(path):
+                        os.remove(path)
+                        sock.send("OK DELETE".encode())
+                    else: sock.send("Nuk ekziston".encode())
+                #komanda e search nga admini
+                elif cmd == "/search" and roles[sock] == "admin":
+                    res = [f for f in os.listdir("server_files") if cmd_parts[1] in f]
+                    sock.send(str(res).encode())
+                # komanda e info nga admini
+                elif cmd == "/info" and roles[sock] == "admin":
+                    path = f"server_files/{cmd_parts[1]}"
+                    if os.path.exists(path):
+                        st = os.stat(path); info = f"{st.st_size}B | {time.ctime(st.st_ctime)}"
+                        sock.send(info.encode())
+                    else: sock.send("Nuk ekziston".encode())
 
             except Exception as e: # kodi vazhdon kjo pjese eshte e perkohshme 
                 print(f"Gabim: {e}")
